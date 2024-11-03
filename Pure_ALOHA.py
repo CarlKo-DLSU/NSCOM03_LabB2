@@ -13,12 +13,18 @@ ack_received_device1 = threading.Event()
 ack_received_device2 = threading.Event()
 success_count = 0
 success_lock = threading.Lock()
+device1_success = False
+device2_success = False
 
 def device(device_id, ack_event):
-    global success_count
+    global success_count, device1_success, device2_success
     K = 0  # Number of attempts
 
     while True:
+        if (device_id == 1 and device1_success) or (device_id == 2 and device2_success):
+            print(f"Device {device_id}: Already successful, exiting.")
+            break
+
         print(f"Device {device_id}: Attempt {K}")
         
         # Step 3: Send the frame
@@ -35,6 +41,10 @@ def device(device_id, ack_event):
         if ack_event.is_set():
             with success_lock:
                 success_count += 1
+                if device_id == 1:
+                    device1_success = True
+                else:
+                    device2_success = True
             print(f"Device {device_id}: ACK received. Success!")
             break
         else:
@@ -59,18 +69,19 @@ def device(device_id, ack_event):
         ack_event.clear()
 
 def ack_sender():
-    global success_count
+    global success_count, device1_success, device2_success
     while True:
         # Simulate random ACK sending
         time.sleep(random.uniform(2 * Tp, 5 * Tp))  # Random time to send ACK
         if success_count >= 2:  # Stop sending ACKs after both devices succeed
             print("ACK sender: Both devices have succeeded. Stopping ACK sender.")
             break
-        # Randomly send ACK to one of the devices
-        if random.choice([True, False]):
+        
+        # Send ACKs to devices that haven't succeeded
+        if not device1_success:
             ack_received_device1.set()
             print("ACK sent to Device 1!")
-        else:
+        if not device2_success:
             ack_received_device2.set()
             print("ACK sent to Device 2!")
 
